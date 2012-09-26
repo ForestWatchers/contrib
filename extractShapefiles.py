@@ -19,71 +19,84 @@
 import sys
 import ogr
 
-#Desired class
-#desClass = 'HIDROGRAFIA'
-desClass = 'FLORESTA'
+#Desired states
+listStates = ['AC', 'AM', 'AP', 'MA', 'MT', 'PA', 'RO', 'RR', 'TO']
 
-#Desired state
-desState = 'TO'
+#Desired classes
+listClasses = ['FLORESTA', 'HIDROGRAFIA']
 
-#Set the name to be openned
-fileName = "/home/eduardo/ShapeFiles/PRODES/estados/PDigital2000_2011_"+desState+"_shp/PDigital2011_"+desState+"_pol.shp"
+#Loop in list of desired states
+for desState in listStates:
 
-#Opens the shapefile and test the openning procedure
-shapeFile = ogr.Open(fileName)
-if shapeFile is None:
-    print "Open failed.\n"
-    sys.exit(1)
+    #Loop in list of desired classes
+    for desClass in listClasses:
 
-#Set the new file to be written (initially a copy of the original)
-destName = "/home/eduardo/ShapeFiles/PRODES/estados/PDigital2000_2011_"+desState+"_shp/new/"+desClass+"_PDigital2011_"+desState+"__pol.shp"
-driveName = "ESRI Shapefile"
-driver = ogr.GetDriverByName(driveName)
-if driver is None:
-    print "Driver not available!\n"
-    sys.exit(1)
-dest = driver.CopyDataSource(shapeFile,destName)
+        #Set the name to be openned
+        fileName = "/home/eduardo/ShapeFiles/PRODES/estados/PDigital2000_2011_"+desState+"_shp/PDigital2011_"+desState+"_pol.shp"
 
-#Close all and save
-shapeFile = None
-dest = None
+        #Opens the shapefile and test the openning procedure
+        origFile = ogr.Open(fileName)
+        if origFile is None:
+            print "Open failed.\n"
+            print fileName
+            sys.exit(1)
 
-#Informs the user
-print "File copied..."
-print ""
+        #Set the new file to be written (initially a copy of the original)
+        destName = "/home/eduardo/ShapeFiles/PRODES/estados/PDigital2000_2011_"+desState+"_shp/new/"+desClass+"_PDigital2011_"+desState+"_pol.shp"
+        driveName = "ESRI Shapefile"
+        driver = ogr.GetDriverByName(driveName)
+        if driver is None:
+            print "Driver not available!\n"
+            sys.exit(1)
+        destFile = driver.CopyDataSource(origFile,destName)
 
-#Open the new file for removal
-shapeFile = ogr.Open(destName,2)
+        #Close file
+        origFile = None
 
-#Reads the layer
-layer = shapeFile.GetLayer()
-print "Name of the layer: ", layer.GetName()
-print ""
+        #Informs the user
+        print "File copied..."
+        print ""
 
-#Reads the layer definition
-layer_def = layer.GetLayerDefn()
-#print layer_def
+        #Reads the layer
+        layer = destFile.GetLayer()
+        print "Name of the layer: ", layer.GetName()
+        print ""
 
-#Get the fields names
-field_names = [layer_def.GetFieldDefn(i).GetName() for i in range (layer_def.GetFieldCount())]
-print "Field names available: ", field_names
-print ""
+        #Reads the layer definition
+        layer_def = layer.GetLayerDefn()
 
-#Get the number of features
-numberFeatures = layer.GetFeatureCount()
-print "Number of features :", numberFeatures
-print ""
+        #Get the fields names
+        field_names = [layer_def.GetFieldDefn(i).GetName() for i in range (layer_def.GetFieldCount())]
+        print "Field names available: ", field_names
+        print ""
 
-#Let's count the number of desired features
-counter = 0
-for i in range(numberFeatures):
-    feature = layer.GetNextFeature()
-    if feature['mainclass'] == desClass:
-        counter = counter + 1
-    else:
-        layer.DeleteFeature(i)
-print "Number of new features: ", counter
+        #Get the number of features
+        numberFeatures = layer.GetFeatureCount()
+        print "Number of features :", numberFeatures
+        print ""
 
-#Close things
-shapeFile = None
-dest = None
+        #Let's count the number of desired features
+        counter = 0
+        for i in range(numberFeatures):
+            feature = layer.GetNextFeature()
+            classFeature = feature.GetFieldAsString(6)
+            if classFeature == desClass:
+                counter = counter + 1
+            else:
+                lfid = feature.GetFID()
+                errorCode = layer.DeleteFeature(lfid)
+                if errorCode != 0:
+                    print "Error deleting feature.\n"
+                    sys.exit(1)
+            feature.Destroy()
+        print "Number of new features: ", counter
+
+        #Repack SQL
+        destFile.ExecuteSQL("REPACK " + layer.GetName())
+
+        #Close file
+        destFile = None
+
+#Program ends correctly
+sys.exit(0)
+
