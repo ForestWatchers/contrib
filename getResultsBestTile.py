@@ -1,0 +1,178 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+# Copyright (C) 2012 Instituto Nacional de Pesquisas Espaciais (INPE)
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+import sys
+import json
+import urllib2
+from optparse import OptionParser
+
+def getAppId(server, appName):
+    """
+    Get the application id given the short name
+
+    :arg string server: Address of the server
+    :arg string appName: Short name of the application
+    :returns: Numerical id of the application
+    :rtype: integer
+    """
+    JSONdata = urllib2.urlopen(url=server+"/api/app?short_name="+appName, timeout=120).read()
+    data = json.loads(JSONdata)
+    appId = data[0]['id']
+    return appId
+
+def getTasks(server, appId, maxNumberTasks):
+    """
+    Get the tasks of a particular application from the server.
+
+    :arg string server: Address of the server
+    :arg string appId: ID of the application to be analysed
+    :arg integer maxNumberTasks: Maximum number of tasks to be downloaded
+    :returns: Tasks info for the application
+    :rtype: dictionary
+    """
+    JSONdata = urllib2.urlopen(url=server+"/api/task?app_id="+str(appId)+"&limit="+str(maxNumberTasks)).read()
+    data = json.loads(JSONdata)
+    numberTasks = len(data)
+    tasksInfo = []
+    for item in range(numberTasks):
+        tasksInfo.append({'taskId':data[item]['id'], 'area':data[item]['info']['tile']['restrictedExtent']})
+    return tasksInfo
+
+def getResults(server, tasksInfo, maxNumberAnswers):
+    """
+    Get the results of a particular application from the server.
+
+    :arg string server: Address of the server
+    :arg integer maxNumberAnswers: Maximum number of answers per task to be downloaded
+    :arg list tasksInfo: List of tasks
+    :returns: Results for the application
+    :rtype: dictionary
+    """
+    answersApp = []
+    numberTasks = len(tasksInfo)
+    for item in range(numberTasks):
+        answersApp.append([])
+        JSONdata = urllib2.urlopen(url=server+"/api/taskrun?task_id="+str(tasksInfo[item]['taskId'])+"&limit="+str(maxNumberAnswers)).read()
+        data = json.loads(JSONdata)
+        lenData = len(data)
+        for ans in range(lenData):
+            answersApp[item].append({'taskId':data[ans]['task_id'], 'id':data[ans]['id'], 'answer':data[ans]['info']['besttile']})
+    return answersApp
+
+def genStats(data, printStats = 0):
+    """
+    Calculate statistics about the results
+
+    :arg list dict data: Dictionary list with all the results.
+
+    :returns: Matrix with answers count for each task
+    :rtype: list
+    """
+    print "Begin of analysing results"
+    tileCount = []
+    numberTasks = len(data)
+    for task in range(numberTasks):
+        tileCount.append([0] * 12)
+        numberResults = len(data[task])
+        for result in range(numberResults):
+            if data[task][result]['answer'] == '2011352':
+                tileCount[task][0] = tileCount[task][0] + 1
+            elif data[task][result]['answer'] == '2011353':
+                tileCount[task][1] = tileCount[task][1] + 1
+            elif data[task][result]['answer'] == '2011355':
+                tileCount[task][2] = tileCount[task][2] + 1
+            elif data[task][result]['answer'] == '2011357':
+                tileCount[task][3] = tileCount[task][3] + 1
+            elif data[task][result]['answer'] == '2011358':
+                tileCount[task][4] = tileCount[task][4] + 1
+            elif data[task][result]['answer'] == '2011359':
+                tileCount[task][5] = tileCount[task][5] + 1
+            elif data[task][result]['answer'] == '2011360':
+                tileCount[task][6] = tileCount[task][6] + 1
+            elif data[task][result]['answer'] == '2011361':
+                tileCount[task][7] = tileCount[task][7] + 1
+            elif data[task][result]['answer'] == '2011362':
+                tileCount[task][8] = tileCount[task][8] + 1
+            elif data[task][result]['answer'] == '2011363':
+                tileCount[task][9] = tileCount[task][9] + 1
+            elif data[task][result]['answer'] == '2011364':
+                tileCount[task][10] = tileCount[task][10] + 1
+            elif data[task][result]['answer'] == '2011365':
+                tileCount[task][11] = tileCount[task][11] + 1
+        #Print info for debug
+        if printStats == 1:
+            print "Stats for task " + str(task)
+            print "Tile 00 (352) = " + str(tileCount[task][0])
+            print "Tile 01 (353) = " + str(tileCount[task][1])
+            print "Tile 02 (355) = " + str(tileCount[task][2])
+            print "Tile 03 (357) = " + str(tileCount[task][3])
+            print "Tile 04 (358) = " + str(tileCount[task][4])
+            print "Tile 05 (359) = " + str(tileCount[task][5])
+            print "Tile 06 (360) = " + str(tileCount[task][6])
+            print "Tile 07 (361) = " + str(tileCount[task][7])
+            print "Tile 08 (362) = " + str(tileCount[task][8])
+            print "Tile 09 (363) = " + str(tileCount[task][9])
+            print "Tile 10 (364) = " + str(tileCount[task][10])
+            print "Tile 11 (365) = " + str(tileCount[task][11])
+            print "Maximum value = " + str(max(tileCount[task]))
+            print "Position = " + str(tileCount[task].index(max(tileCount[task])))
+            print ""
+    print "End of analysing results"
+    return tileCount
+
+#######################
+# Begin of the script #
+#######################
+
+if __name__ == "__main__":
+
+    # Arguments for the application
+    usage = "usage: %prog arg1 arg2"
+    parser = OptionParser(usage)
+
+    parser.add_option("-s", "--server", dest="server", help="Address to the server", metavar="SERVER")
+    parser.add_option("-n", "--app-name", dest="appName", help="Short name of the application", metavar="APPNAME")
+    parser.add_option("-t", "--max-number-tasks", dest="maxNumberTasks", help="Maximum number of tasks to be downloaded", metavar="MAXNUMBERTASKS")
+    parser.add_option("-a", "--max-number-answers", dest="maxNumberAnswers", help="Maximum number of answers to be downloaded", metavar="MAXNUMBERANSWERS")
+
+    (options, args) = parser.parse_args()
+
+    if options.server:
+        server = options.server
+    else:
+        server = "http://forestwatchers.net/pybossa"
+    if options.appName:
+        appName = options.appName
+    else:
+        appName = "besttile"
+    if options.maxNumberTasks:
+        maxNumberTasks = options.maxNumberTasks
+    else:
+        #maxNumberTasks = 1060
+        maxNumberTasks = 10
+    if options.maxNumberAnswers:
+        maxNumberAnswers = options.maxNumberAnswers
+    else:
+        #maxNumberAnswers = 35
+        maxNumberAnswers = 10
+
+    #Get the data
+    appId = getAppId(server, appName)
+    tasksInfo = getTasks(server, appId, maxNumberTasks)
+    results = getResults(server, tasksInfo, maxNumberAnswers)
+    stats = genStats(results, 1)
