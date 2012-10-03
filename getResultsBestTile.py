@@ -16,6 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import sys
 import json
 import urllib2
@@ -30,7 +31,8 @@ def getAppId(server, appName):
     :returns: Numerical id of the application
     :rtype: integer
     """
-    JSONdata = urllib2.urlopen(url=server+"/api/app?short_name="+appName, timeout=120).read()
+    JSONdata = urllib2.urlopen(url=server+"/api/app?short_name="+ \
+        appName).read()
     data = json.loads(JSONdata)
     appId = data[0]['id']
     return appId
@@ -45,12 +47,14 @@ def getTasks(server, appId, maxNumberTasks):
     :returns: Tasks info for the application
     :rtype: dictionary
     """
-    JSONdata = urllib2.urlopen(url=server+"/api/task?app_id="+str(appId)+"&limit="+str(maxNumberTasks)).read()
+    JSONdata = urllib2.urlopen(url=server+"/api/task?app_id="+ \
+        str(appId)+"&limit="+str(maxNumberTasks)).read()
     data = json.loads(JSONdata)
     numberTasks = len(data)
     tasksInfo = []
     for item in range(numberTasks):
-        tasksInfo.append({'taskId':data[item]['id'], 'area':data[item]['info']['tile']['restrictedExtent']})
+        tasksInfo.append({'taskId':data[item]['id'], \
+            'area':data[item]['info']['tile']['restrictedExtent']})
     return tasksInfo
 
 def getResults(server, tasksInfo, maxNumberAnswers):
@@ -67,11 +71,14 @@ def getResults(server, tasksInfo, maxNumberAnswers):
     numberTasks = len(tasksInfo)
     for item in range(numberTasks):
         answersApp.append([])
-        JSONdata = urllib2.urlopen(url=server+"/api/taskrun?task_id="+str(tasksInfo[item]['taskId'])+"&limit="+str(maxNumberAnswers)).read()
+        JSONdata = urllib2.urlopen(url=server+"/api/taskrun?task_id="+ \
+            str(tasksInfo[item]['taskId'])+"&limit="+ \
+            str(maxNumberAnswers)).read()
         data = json.loads(JSONdata)
         lenData = len(data)
         for ans in range(lenData):
-            answersApp[item].append({'taskId':data[ans]['task_id'], 'id':data[ans]['id'], 'answer':data[ans]['info']['besttile']})
+            answersApp[item].append({'taskId':data[ans]['task_id'], \
+            'id':data[ans]['id'], 'answer':data[ans]['info']['besttile']})
     return answersApp
 
 def genStats(data, printStats = 0):
@@ -83,7 +90,6 @@ def genStats(data, printStats = 0):
     :returns: Matrix with answers count for each task
     :rtype: list
     """
-    print "Begin of analysing results"
     tileCount = []
     numberTasks = len(data)
     for task in range(numberTasks):
@@ -91,29 +97,29 @@ def genStats(data, printStats = 0):
         numberResults = len(data[task])
         for result in range(numberResults):
             if data[task][result]['answer'] == '2011352':
-                tileCount[task][0] = tileCount[task][0] + 1
+                tileCount[task][0] += 1
             elif data[task][result]['answer'] == '2011353':
-                tileCount[task][1] = tileCount[task][1] + 1
+                tileCount[task][1] += 1
             elif data[task][result]['answer'] == '2011355':
-                tileCount[task][2] = tileCount[task][2] + 1
+                tileCount[task][2] += 1
             elif data[task][result]['answer'] == '2011357':
-                tileCount[task][3] = tileCount[task][3] + 1
+                tileCount[task][3] += 1
             elif data[task][result]['answer'] == '2011358':
-                tileCount[task][4] = tileCount[task][4] + 1
+                tileCount[task][4] += 1
             elif data[task][result]['answer'] == '2011359':
-                tileCount[task][5] = tileCount[task][5] + 1
+                tileCount[task][5] += 1
             elif data[task][result]['answer'] == '2011360':
-                tileCount[task][6] = tileCount[task][6] + 1
+                tileCount[task][6] += 1
             elif data[task][result]['answer'] == '2011361':
-                tileCount[task][7] = tileCount[task][7] + 1
+                tileCount[task][7] += 1
             elif data[task][result]['answer'] == '2011362':
-                tileCount[task][8] = tileCount[task][8] + 1
+                tileCount[task][8] += 1
             elif data[task][result]['answer'] == '2011363':
-                tileCount[task][9] = tileCount[task][9] + 1
+                tileCount[task][9] += 1
             elif data[task][result]['answer'] == '2011364':
-                tileCount[task][10] = tileCount[task][10] + 1
+                tileCount[task][10] += 1
             elif data[task][result]['answer'] == '2011365':
-                tileCount[task][11] = tileCount[task][11] + 1
+                tileCount[task][11] += 1
         #Print info for debug
         if printStats == 1:
             print "Stats for task " + str(task)
@@ -132,8 +138,64 @@ def genStats(data, printStats = 0):
             print "Maximum value = " + str(max(tileCount[task]))
             print "Position = " + str(tileCount[task].index(max(tileCount[task])))
             print ""
-    print "End of analysing results"
     return tileCount
+
+def cutBestTiles(tasksInfo, results):
+    """
+    Cut the best tiles based on the results obtained by genStats
+
+    :arg list dict tasks: Dictionary list with the tasks info.
+    :arg list dict results: Dictionary list with the processed results.
+
+    :returns: Nothing
+    :rtype: None
+    """
+    origLocation = "/home/eduardo/Testes/fw_img/FAS_Brazil7/"
+    tmpLocation = "/home/eduardo/Testes/fw_img/FAS_Brazil7/tmp/"
+    destLocation = "/home/eduardo/Testes/fw_img/FAS_Brazil7/final/"
+
+    numberTasks = len(tasksInfo)
+    for task in range(numberTasks):
+        taskId = tasksInfo[task]['taskId']
+        definedArea = tasksInfo[task]['area']
+        selectedTile = results[task].index(max(results[task]))
+        if selectedTile == 0:
+            selectedFile = '2011352'
+        elif selectedTile == 1:
+            selectedFile = '2011353'
+        elif selectedTile == 2:
+            selectedFile = '2011355'
+        elif selectedTile == 3:
+            selectedFile = '2011357'
+        elif selectedTile == 4:
+            selectedFile = '2011358'
+        elif selectedTile == 5:
+            selectedFile = '2011359'
+        elif selectedTile == 6:
+            selectedFile = '2011360'
+        elif selectedTile == 7:
+            selectedFile = '2011361'
+        elif selectedTile == 8:
+            selectedFile = '2011362'
+        elif selectedTile == 9:
+            selectedFile = '2011363'
+        elif selectedTile == 10:
+            selectedFile = '2011364'
+        elif selectedTile == 11:
+            selectedFile = '2011365'
+        print taskId
+        print selectedFile
+        print definedArea
+        cmd = "gdal_translate -projwin "+str(definedArea[0])+" "+ \
+            str(definedArea[3])+" "+str(definedArea[2])+" "+ \
+            str(definedArea[1])+" "+origLocation+selectedFile+".tif "+ \
+            tmpLocation+str(taskId)+".tif"
+        os.system(cmd)
+    cmd = "gdal_merge.py -o "+destLocation+"mosaic.tif "+tmpLocation+ \
+        "*.tif"
+    os.system(cmd)
+    resultCut = 0
+    return resultCut
 
 #######################
 # Begin of the script #
@@ -145,10 +207,16 @@ if __name__ == "__main__":
     usage = "usage: %prog arg1 arg2"
     parser = OptionParser(usage)
 
-    parser.add_option("-s", "--server", dest="server", help="Address to the server", metavar="SERVER")
-    parser.add_option("-n", "--app-name", dest="appName", help="Short name of the application", metavar="APPNAME")
-    parser.add_option("-t", "--max-number-tasks", dest="maxNumberTasks", help="Maximum number of tasks to be downloaded", metavar="MAXNUMBERTASKS")
-    parser.add_option("-a", "--max-number-answers", dest="maxNumberAnswers", help="Maximum number of answers to be downloaded", metavar="MAXNUMBERANSWERS")
+    parser.add_option("-s", "--server", dest="server", \
+        help="Address to the server", metavar="SERVER")
+    parser.add_option("-n", "--app-name", dest="appName", \
+        help="Short name of the application", metavar="APPNAME")
+    parser.add_option("-t", "--max-number-tasks", dest="maxNumberTasks", \
+        help="Maximum number of tasks to be downloaded", \
+        metavar="MAXNUMBERTASKS")
+    parser.add_option("-a", "--max-number-answers", dest="maxNumberAnswers", \
+        help="Maximum number of answers to be downloaded", \
+        metavar="MAXNUMBERANSWERS")
 
     (options, args) = parser.parse_args()
 
@@ -163,16 +231,15 @@ if __name__ == "__main__":
     if options.maxNumberTasks:
         maxNumberTasks = options.maxNumberTasks
     else:
-        #maxNumberTasks = 1060
-        maxNumberTasks = 10
+        maxNumberTasks = 1060
     if options.maxNumberAnswers:
         maxNumberAnswers = options.maxNumberAnswers
     else:
-        #maxNumberAnswers = 35
-        maxNumberAnswers = 10
+        maxNumberAnswers = 35
 
-    #Get the data
+    #Get the data and start analysing it
     appId = getAppId(server, appName)
     tasksInfo = getTasks(server, appId, maxNumberTasks)
     results = getResults(server, tasksInfo, maxNumberAnswers)
-    stats = genStats(results, 1)
+    stats = genStats(results, 0)
+    finalResult = cutBestTiles(tasksInfo, stats)
