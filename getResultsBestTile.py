@@ -37,18 +37,24 @@ def getAppId(server, appName):
     appId = data[0]['id']
     return appId
 
-def getTasks(server, appId, maxNumberTasks):
+def getTasks(server, appId, maxNumberTasks, completedOnly):
     """
     Get the tasks of a particular application from the server.
 
     :arg string server: Address of the server
     :arg string appId: ID of the application to be analysed
     :arg integer maxNumberTasks: Maximum number of tasks to be downloaded
+    :arg int completedOnly: If we'll get only completed tasks
     :returns: Tasks info for the application
     :rtype: dictionary
     """
-    JSONdata = urllib2.urlopen(url=server+"/api/task?app_id="+ \
-        str(appId)+"&limit="+str(maxNumberTasks)).read()
+    if completedOnly == 1:
+        JSONdata = urllib2.urlopen(url=server+"/api/task?app_id="+ \
+            str(appId)+"&state=completed&limit="+ \
+            str(maxNumberTasks)).read()
+    else:
+        JSONdata = urllib2.urlopen(url=server+"/api/task?app_id="+ \
+            str(appId)+"&limit="+str(maxNumberTasks)).read()
     data = json.loads(JSONdata)
     numberTasks = len(data)
     tasksInfo = []
@@ -217,6 +223,8 @@ if __name__ == "__main__":
     parser.add_option("-a", "--max-number-answers", dest="maxNumberAnswers", \
         help="Maximum number of answers to be downloaded", \
         metavar="MAXNUMBERANSWERS")
+    parser.add_option("-c", "--completed-only", dest="completedOnly", \
+        help="Get only completed tasks", metavar="COMPLETEDONLY")
 
     (options, args) = parser.parse_args()
 
@@ -235,11 +243,15 @@ if __name__ == "__main__":
     if options.maxNumberAnswers:
         maxNumberAnswers = options.maxNumberAnswers
     else:
-        maxNumberAnswers = 35
+        maxNumberAnswers = 50
+    if options.completedOnly:
+        completedOnly = options.completedOnly
+    else:
+        completedOnly = 1
 
     #Get the data and start analysing it
     appId = getAppId(server, appName)
-    tasksInfo = getTasks(server, appId, maxNumberTasks)
+    tasksInfo = getTasks(server, appId, maxNumberTasks, completedOnly)
     results = getResults(server, tasksInfo, maxNumberAnswers)
     stats = genStats(results, 0)
     finalResult = cutBestTiles(tasksInfo, stats)
