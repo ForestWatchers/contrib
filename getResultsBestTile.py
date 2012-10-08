@@ -22,6 +22,7 @@ import gdal
 import json
 import shutil
 import urllib2
+import datetime
 from gdalconst import *
 from optparse import OptionParser
 
@@ -149,21 +150,22 @@ def genStats(data, printStats = 0):
             print ""
     return tileCount
 
-def cutBestTiles(tasksInfo, results):
+def cutBestTiles(tasksInfo, results, origLocation, destLocation):
     """
     Cut the best tiles based on the results obtained by genStats
 
     :arg list dict tasks: Dictionary list with the tasks info.
     :arg list dict results: Dictionary list with the processed results.
+    :arg string origLocation: Directory with orginal images.
+    :arg string origLocation: Directory for the results.
 
     :returns: Nothing
     :rtype: None
     """
-    origLocation = "/home/eduardo/Testes/fw_img/FAS_Brazil7/"
-    tmpLocation = "/home/eduardo/Testes/fw_img/FAS_Brazil7/tmp/"
-    destLocation = "/home/eduardo/Testes/fw_img/FAS_Brazil7/final/"
-    colourTmp = "/home/eduardo/Testes/fw_img/FAS_Brazil7/tmpColour/"
-    colourFinal = "/home/eduardo/Testes/fw_img/FAS_Brazil7/finalColour/"
+    tmpMosaic = destLocation+"/tmpMosaic/"
+    createDir(tmpMosaic)
+    tmpIntensity = destLocation+"/tmpIntensity/"
+    createDir(tmpIntensity)
 
     intensity = 1
     formatFile = "GTiff"
@@ -171,6 +173,7 @@ def cutBestTiles(tasksInfo, results):
 
     numberTasks = len(tasksInfo)
     for task in range(numberTasks):
+        #Geting the selected day for each task
         taskId = tasksInfo[task]['taskId']
         definedArea = tasksInfo[task]['area']
         selectedTile = results[task].index(max(results[task]))
@@ -204,11 +207,12 @@ def cutBestTiles(tasksInfo, results):
         cmd = "gdal_translate -projwin "+str(definedArea[0])+" "+ \
             str(definedArea[3])+" "+str(definedArea[2])+" "+ \
             str(definedArea[1])+" "+origLocation+selectedFile+".tif "+ \
-            tmpLocation+str(taskId)+".tif"
+            tmpMosaic+str(taskId)+".tif"
         os.system(cmd)
+        #Creating intensity map
         if intensity == 1:
-            origCut = tmpLocation+str(taskId)+".tif"
-            colourCut = colourTmp+str(taskId)+".tif"
+            origCut = tmpMosaic+str(taskId)+".tif"
+            colourCut = tmpIntensity+str(taskId)+".tif"
             if os.path.isfile(origCut):
                 shutil.copy(origCut, colourCut)
                 pointFile = gdal.Open(colourCut, 2)
@@ -222,14 +226,55 @@ def cutBestTiles(tasksInfo, results):
                         newData = (data * 0)
                     pointFile.GetRasterBand(item+1).WriteArray(newData)
                 pointFile = None
-    cmd = "gdal_merge.py -o "+destLocation+"mosaic.tif "+tmpLocation+ \
+    cmd = "gdal_merge.py -o "+destLocation+"mosaic.tif "+tmpMosaic+ \
         "*.tif"
     os.system(cmd)
-    cmd = "gdal_merge.py -o "+colourFinal+"mosaic.tif "+colourTmp+ \
+    cmd = "gdal_merge.py -o "+destLocation+"intensity.tif "+tmpIntensity+ \
         "*.tif"
     os.system(cmd)
+    #Copying file with timestamp
+    now = datetime.datetime.now()
+    timeCreation = now.strftime("%Y-%m-%d_%Hh%M")
+    shutil.copyfile(destLocation+"mosaic.tif", destLocation+ \
+        "mosaic"+timeCreation+".tif")
+    shutil.copyfile(destLocation+"intensity.tif", destLocation+ \
+        "intensity"+timeCreation+".tif")
+    #Removing temporary directories
+    removeDir(tmpMosaic)
+    removeDir(tmpIntensity)
+    #Final state
     resultCut = 0
     return resultCut
+
+def createDir(directory):
+    """
+    Creates a directory if it doesn't exists
+
+    :arg string directory: Directory to be created.
+
+    :returns: statusCreation
+    :rtype: int
+    """
+    if not os.path.exists(directory):
+        statusCreation = os.makedirs(directory)
+    else:
+        statusCreation = 2
+    return statusCreation
+
+def removeDir(directory):
+    """
+    Removes a directory and all its contents
+
+    :arg string directory: Directory to be created.
+
+    :returns: statusDeletion
+    :rtype: int
+    """
+    if os.path.exists(directory):
+        statusDeletion = shutil.rmtree(directory)
+    else:
+        statusDeletion = 2
+    return statusDeletion
 
 #######################
 # Begin of the script #
@@ -253,6 +298,10 @@ if __name__ == "__main__":
         metavar="MAXNUMBERANSWERS")
     parser.add_option("-c", "--completed-only", dest="completedOnly", \
         help="Get only completed tasks", metavar="COMPLETEDONLY")
+    parser.add_option("-i", "--images-directory", dest="imagesDir", \
+        help="Directory containing the images", metavar="IMAGESDIR")
+    parser.add_option("-d", "--destination-directory", dest="destDir", \
+        help="Directory for results", metavar="DESTDIR")
 
     (options, args) = parser.parse_args()
 
@@ -276,10 +325,18 @@ if __name__ == "__main__":
         completedOnly = options.completedOnly
     else:
         completedOnly = 0
+    if options.imagesDir:
+        imagesDir = options.imagesDir
+    else:
+        imagesDir = "/home/eduardo/Testes/fw_img/FAS_Brazil7/"
+    if options.destDir:
+        destDir = options.destDir
+    else:
+        destDir = "/home/eduardo/Testes/fw_img/results/"
 
     #Get the data and start analysing it
     appId = getAppId(server, appName)
     tasksInfo = getTasks(server, appId, maxNumberTasks, completedOnly)
     results = getResults(server, tasksInfo, maxNumberAnswers)
     stats = genStats(results, 0)
-    finalResult = cutBestTiles(tasksInfo, stats)
+    finalResult = cutBestTiles(tasksInfo, stats, imagesDir, destDir)
