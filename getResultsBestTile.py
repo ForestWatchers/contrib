@@ -150,7 +150,7 @@ def genStats(data, printStats = 0):
             print ""
     return tileCount
 
-def cutBestTiles(tasksInfo, results, origLocation, destLocation):
+def cutBestTiles(tasksInfo, results, origLocation, destLocation, completedOnly):
     """
     Cut the best tiles based on the results obtained by genStats
 
@@ -158,6 +158,7 @@ def cutBestTiles(tasksInfo, results, origLocation, destLocation):
     :arg list dict results: Dictionary list with the processed results.
     :arg string origLocation: Directory with orginal images.
     :arg string origLocation: Directory for the results.
+    :arg int completedOnly: If we are processing only completed tasks
 
     :returns: Nothing
     :rtype: None
@@ -226,19 +227,28 @@ def cutBestTiles(tasksInfo, results, origLocation, destLocation):
                         newData = (data * 0)
                     pointFile.GetRasterBand(item+1).WriteArray(newData)
                 pointFile = None
-    cmd = "gdal_merge.py -o "+destLocation+"mosaic.tif "+tmpMosaic+ \
+    #Changing filename based on the type of result (if all results or
+    #completed only.
+    if completedOnly == 0:
+        fileMosaic = "mosaicall"
+        fileIntensity = "intensityall"
+    elif completedOnly == 1:
+        fileMosaic = "mosaiccompleted"
+        fileIntensity = "intensitycompleted"
+    #Merging the tiles into one mosaic
+    cmd = "gdal_merge.py -o "+destLocation+fileMosaic+".tif "+tmpMosaic+ \
         "*.tif"
     os.system(cmd)
-    cmd = "gdal_merge.py -o "+destLocation+"intensity.tif "+tmpIntensity+ \
+    cmd = "gdal_merge.py -o "+destLocation+fileIntensity+".tif "+tmpIntensity+ \
         "*.tif"
     os.system(cmd)
     #Copying file with timestamp
     now = datetime.datetime.now()
     timeCreation = now.strftime("%Y-%m-%d_%Hh%M")
-    shutil.copyfile(destLocation+"mosaic.tif", destLocation+ \
-        "mosaic"+timeCreation+".tif")
-    shutil.copyfile(destLocation+"intensity.tif", destLocation+ \
-        "intensity"+timeCreation+".tif")
+    shutil.copyfile(destLocation+fileMosaic+".tif", destLocation+ \
+        fileMosaic+timeCreation+".tif")
+    shutil.copyfile(destLocation+fileIntensity+".tif", destLocation+ \
+        fileIntensity+timeCreation+".tif")
     #Removing temporary directories
     removeDir(tmpMosaic)
     removeDir(tmpIntensity)
@@ -316,11 +326,11 @@ if __name__ == "__main__":
     if options.maxNumberTasks:
         maxNumberTasks = options.maxNumberTasks
     else:
-        maxNumberTasks = 1060
+        maxNumberTasks = 1056
     if options.maxNumberAnswers:
         maxNumberAnswers = options.maxNumberAnswers
     else:
-        maxNumberAnswers = 35
+        maxNumberAnswers = 30
     if options.completedOnly:
         completedOnly = options.completedOnly
     else:
@@ -336,7 +346,19 @@ if __name__ == "__main__":
 
     #Get the data and start analysing it
     appId = getAppId(server, appName)
+
+    #For complete tasks only
+    completedOnly = 1    
     tasksInfo = getTasks(server, appId, maxNumberTasks, completedOnly)
     results = getResults(server, tasksInfo, maxNumberAnswers)
     stats = genStats(results, 0)
-    finalResult = cutBestTiles(tasksInfo, stats, imagesDir, destDir)
+    finalResult = cutBestTiles(tasksInfo, stats, imagesDir, destDir, \
+        completedOnly)
+
+    #For all tasks
+    completedOnly = 0
+    tasksInfo = getTasks(server, appId, maxNumberTasks, completedOnly)
+    results = getResults(server, tasksInfo, maxNumberAnswers)
+    stats = genStats(results, 0)
+    finalResult = cutBestTiles(tasksInfo, stats, imagesDir, destDir, \
+        completedOnly)
