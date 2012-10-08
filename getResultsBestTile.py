@@ -18,8 +18,11 @@
 
 import os
 import sys
+import gdal
 import json
+import shutil
 import urllib2
+from gdalconst import *
 from optparse import OptionParser
 
 def getAppId(server, appName):
@@ -159,6 +162,12 @@ def cutBestTiles(tasksInfo, results):
     origLocation = "/home/eduardo/Testes/fw_img/FAS_Brazil7/"
     tmpLocation = "/home/eduardo/Testes/fw_img/FAS_Brazil7/tmp/"
     destLocation = "/home/eduardo/Testes/fw_img/FAS_Brazil7/final/"
+    colourTmp = "/home/eduardo/Testes/fw_img/FAS_Brazil7/tmpColour/"
+    colourFinal = "/home/eduardo/Testes/fw_img/FAS_Brazil7/finalColour/"
+
+    intensity = 1
+    formatFile = "GTiff"
+    driver = gdal.GetDriverByName(formatFile)
 
     numberTasks = len(tasksInfo)
     for task in range(numberTasks):
@@ -197,7 +206,26 @@ def cutBestTiles(tasksInfo, results):
             str(definedArea[1])+" "+origLocation+selectedFile+".tif "+ \
             tmpLocation+str(taskId)+".tif"
         os.system(cmd)
+        if intensity == 1:
+            origCut = tmpLocation+str(taskId)+".tif"
+            colourCut = colourTmp+str(taskId)+".tif"
+            if os.path.isfile(origCut):
+                shutil.copy(origCut, colourCut)
+                pointFile = gdal.Open(colourCut, 2)
+                votes = max(results[task])
+                for item in range(pointFile.RasterCount):
+                    data = pointFile.GetRasterBand(item+1).ReadAsArray()
+                    lenData = len(data)
+                    if item == 1:
+                        newData = (data * 0) + int(votes * 8)
+                    else:
+                        newData = (data * 0)
+                    pointFile.GetRasterBand(item+1).WriteArray(newData)
+                pointFile = None
     cmd = "gdal_merge.py -o "+destLocation+"mosaic.tif "+tmpLocation+ \
+        "*.tif"
+    os.system(cmd)
+    cmd = "gdal_merge.py -o "+colourFinal+"mosaic.tif "+colourTmp+ \
         "*.tif"
     os.system(cmd)
     resultCut = 0
@@ -243,11 +271,11 @@ if __name__ == "__main__":
     if options.maxNumberAnswers:
         maxNumberAnswers = options.maxNumberAnswers
     else:
-        maxNumberAnswers = 50
+        maxNumberAnswers = 35
     if options.completedOnly:
         completedOnly = options.completedOnly
     else:
-        completedOnly = 1
+        completedOnly = 0
 
     #Get the data and start analysing it
     appId = getAppId(server, appName)
