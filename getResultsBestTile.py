@@ -150,7 +150,8 @@ def genStats(data, printStats = 0):
             print ""
     return tileCount
 
-def cutBestTiles(tasksInfo, results, origLocation, destLocation, completedOnly):
+def cutBestTiles(tasksInfo, results, origLocation, destLocation, \
+    completedOnly, nAnswers = 0):
     """
     Cut the best tiles based on the results obtained by genStats
 
@@ -159,21 +160,30 @@ def cutBestTiles(tasksInfo, results, origLocation, destLocation, completedOnly):
     :arg string origLocation: Directory with orginal images.
     :arg string origLocation: Directory for the results.
     :arg int completedOnly: If we are processing only completed tasks
+    :arg int nAnswers: Mininum number of answers to be considered
 
     :returns: Nothing
     :rtype: None
     """
-    tmpMosaic = destLocation+"/tmpMosaic/"
+    tmpMosaic = destLocation+"/tmpMosaic_n"+str(nAnswers)+"/"
     createDir(tmpMosaic)
-    tmpIntensity = destLocation+"/tmpIntensity/"
+    tmpIntensity = destLocation+"/tmpIntensity_n"+str(nAnswers)+"/"
     createDir(tmpIntensity)
 
     intensity = 1
     formatFile = "GTiff"
     driver = gdal.GetDriverByName(formatFile)
 
+    #Open file containing geoinfo on best result
+    if completedOnly == 1:
+        f = open(destLocation+'/bestInfo.txt','w')
+
     numberTasks = len(tasksInfo)
     for task in range(numberTasks):
+        #Checking if the task has the mininum number of answers
+        if (sum(results[task]) < nAnswers):
+            #If it has not, lets go to the next task
+            continue
         #Geting the selected day for each task
         taskId = tasksInfo[task]['taskId']
         definedArea = tasksInfo[task]['area']
@@ -205,6 +215,10 @@ def cutBestTiles(tasksInfo, results, origLocation, destLocation, completedOnly):
         print taskId
         print selectedFile
         print definedArea
+        #Printing bestInfo
+        if completedOnly == 1:
+            f.write(str(definedArea[0])+" "+ str(definedArea[3])+" "+\
+            str(definedArea[2])+" "+str(definedArea[1])+"\n")
         cmd = "gdal_translate -projwin "+str(definedArea[0])+" "+ \
             str(definedArea[3])+" "+str(definedArea[2])+" "+ \
             str(definedArea[1])+" "+origLocation+selectedFile+".tif "+ \
@@ -230,11 +244,28 @@ def cutBestTiles(tasksInfo, results, origLocation, destLocation, completedOnly):
     #Changing filename based on the type of result (if all results or
     #completed only.
     if completedOnly == 0:
-        fileMosaic = "mosaicall"
-        fileIntensity = "intensityall"
+        if nAnswers == 0:
+            fileMosaic = "mosaicall"
+            fileIntensity = "intensityall"
+        else:
+            fileMosaic = "mosaicall"+"_n"+str(nAnswers)
+            fileIntensity = "intensityall"+"_n"+str(nAnswers)
     elif completedOnly == 1:
-        fileMosaic = "mosaiccompleted"
-        fileIntensity = "intensitycompleted"
+        if nAnswers == 0:
+            fileMosaic = "mosaiccompleted"
+            fileIntensity = "intensitycompleted"
+        else:
+            fileMosaic = "mosaiccompleted"+"_n"+str(nAnswers)
+            fileIntensity = "intensitycompleted"+"_n"+str(nAnswers)
+    #Checking if the temporary tile folder is not empty
+    if os.listdir(tmpMosaic) == []:
+        print "No output detected for desired parameter N = " + str(nAnswers)
+        #Removing temporary directories
+        removeDir(tmpMosaic)
+        removeDir(tmpIntensity)
+        #Returning error code
+        resultCut = 1
+        return resultCut
     #Merging the tiles into one mosaic
     cmd = "gdal_merge.py -o "+destLocation+fileMosaic+".tif "+tmpMosaic+ \
         "*.tif"
@@ -246,9 +277,12 @@ def cutBestTiles(tasksInfo, results, origLocation, destLocation, completedOnly):
     now = datetime.datetime.now()
     timeCreation = now.strftime("%Y-%m-%d_%Hh%M")
     shutil.copyfile(destLocation+fileMosaic+".tif", destLocation+ \
-        fileMosaic+timeCreation+".tif")
+        fileMosaic+"_"+timeCreation+".tif")
     shutil.copyfile(destLocation+fileIntensity+".tif", destLocation+ \
-        fileIntensity+timeCreation+".tif")
+        fileIntensity+"_"+timeCreation+".tif")
+    #Close file containing geoinfo on best result
+    if completedOnly == 1:
+        f.close()
     #Removing temporary directories
     removeDir(tmpMosaic)
     removeDir(tmpIntensity)
@@ -293,7 +327,7 @@ def removeDir(directory):
 if __name__ == "__main__":
 
     # Arguments for the application
-    usage = "usage: %prog arg1 arg2"
+    usage = "usage: %prog arg1 arg2 ..."
     parser = OptionParser(usage)
 
     parser.add_option("-s", "--server", dest="server", \
@@ -312,6 +346,8 @@ if __name__ == "__main__":
         help="Directory containing the images", metavar="IMAGESDIR")
     parser.add_option("-d", "--destination-directory", dest="destDir", \
         help="Directory for results", metavar="DESTDIR")
+    parser.add_option("-f", "--full-build", dest="fullBuild", \
+        help="Build the full set of results", metavar="FULLBUILD")
 
     (options, args) = parser.parse_args()
 
@@ -334,7 +370,7 @@ if __name__ == "__main__":
     if options.completedOnly:
         completedOnly = options.completedOnly
     else:
-        completedOnly = 0
+        completedOnly = 1
     if options.imagesDir:
         imagesDir = options.imagesDir
     else:
@@ -343,22 +379,51 @@ if __name__ == "__main__":
         destDir = options.destDir
     else:
         destDir = "/home/eduardo/Testes/fw_img/results/"
+    if options.fullBuild:
+        fullBuild = options.fullBuild
+    else:
+        fullBuild = 0
 
     #Get the data and start analysing it
     appId = getAppId(server, appName)
 
     #For complete tasks only
-    completedOnly = 1    
+    completedOnly = 1
     tasksInfo = getTasks(server, appId, maxNumberTasks, completedOnly)
     results = getResults(server, tasksInfo, maxNumberAnswers)
     stats = genStats(results, 0)
     finalResult = cutBestTiles(tasksInfo, stats, imagesDir, destDir, \
         completedOnly)
+
+    #Clear data
+    tasksInfo = None
+    results = None
+    stats = None
+    finalResult = None
 
     #For all tasks
     completedOnly = 0
     tasksInfo = getTasks(server, appId, maxNumberTasks, completedOnly)
     results = getResults(server, tasksInfo, maxNumberAnswers)
     stats = genStats(results, 0)
+    #Building for any number of answers
     finalResult = cutBestTiles(tasksInfo, stats, imagesDir, destDir, \
         completedOnly)
+
+    #To build the full set of results to ForestWatchers
+    if fullBuild == 1:
+        #Building for 5 answers at least
+        finalResult = cutBestTiles(tasksInfo, stats, imagesDir, destDir, \
+            completedOnly, 5)
+        #Building for 10 answers at least
+        finalResult = cutBestTiles(tasksInfo, stats, imagesDir, destDir, \
+            completedOnly, 10)
+        #Building for 15 answers at least
+        finalResult = cutBestTiles(tasksInfo, stats, imagesDir, destDir, \
+            completedOnly, 15)
+        #Building for 20 answers at least
+        finalResult = cutBestTiles(tasksInfo, stats, imagesDir, destDir, \
+            completedOnly, 20)
+        #Building for 25 answers at least
+        finalResult = cutBestTiles(tasksInfo, stats, imagesDir, destDir, \
+            completedOnly, 25)
