@@ -267,7 +267,7 @@ def cutBestTiles(tasksInfo, results, origLocation, destLocation, \
         resultCut = 1
         return resultCut
     #Merging the tiles into one mosaic
-    cmd = "gdal_merge.py -o "+destLocation+fileMosaic+".tif "+tmpMosaic+ \
+    cmd = "gdal_merge.py -init '200 200 200' -o "+destLocation+fileMosaic+".tif "+tmpMosaic+ \
         "*.tif"
     os.system(cmd)
     cmd = "gdal_merge.py -o "+destLocation+fileIntensity+".tif "+tmpIntensity+ \
