@@ -217,8 +217,8 @@ def cutBestTiles(tasksInfo, results, origLocation, destLocation, \
         print definedArea
         #Printing bestInfo
         if completedOnly == 1:
-            f.write(str(definedArea[0])+" "+ str(definedArea[3])+" "+\
-            str(definedArea[2])+" "+str(definedArea[1])+"\n")
+            f.write(str(definedArea[0])+" "+ str(definedArea[1])+" "+\
+            str(definedArea[2])+" "+str(definedArea[3])+"\n")
         cmd = "gdal_translate -projwin "+str(definedArea[0])+" "+ \
             str(definedArea[3])+" "+str(definedArea[2])+" "+ \
             str(definedArea[1])+" "+origLocation+selectedFile+".tif "+ \
