@@ -17,9 +17,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import re
 import sys
 import gdal
 import json
+import time
 import shutil
 import urllib2
 import datetime
@@ -404,6 +406,28 @@ def removeDir(directory):
         statusDeletion = 2
     return statusDeletion
 
+def removeOldFiles(directory,daysLimit):
+    """
+    Removes old files from a directory older than a given limit
+    Example from: http://www.jigcode.com/2009/06/07/python-list-files-older-than-or-newer-than-a-specific-date-and-time/
+
+    :arg string directory: Directory to be analysed
+    :arg int daysLimit: Limit to remove files
+
+    :returns: statusRemoval
+    :rtype: int
+    """
+    files = os.listdir(directory)
+    files = [ f for f in files if re.search('.tif$', f, re.I)]
+    now = time.time()
+    for file in files:
+        if os.stat(directory+file).st_mtime < now - daysLimit * 86400:
+            if os.path.isfile(directory+file):
+                os.remove(os.path.join(directory, file))
+                print "Old file deleted: ", file
+    statusRemoval = 0
+    return statusRemoval
+
 #######################
 # Begin of the script #
 #######################
@@ -432,6 +456,8 @@ if __name__ == "__main__":
         help="Directory for results", metavar="DESTDIR")
     parser.add_option("-f", "--full-build", dest="fullBuild", \
         help="Build the full set of results", metavar="FULLBUILD")
+    parser.add_option("-r", "--remove-files", dest="removeFiles", \
+        help="Remove files older than D days", metavar="REMOVEFILES")
 
     (options, args) = parser.parse_args()
 
@@ -467,6 +493,10 @@ if __name__ == "__main__":
         fullBuild = options.fullBuild
     else:
         fullBuild = 0
+    if options.removeFiles:
+        removeFiles = options.removeFiles
+    else:
+        removeFiles = 9999
 
     #Get the data and start analysing it
     appId = getAppId(server, appName)
@@ -511,3 +541,6 @@ if __name__ == "__main__":
         #Building for 25 answers at least
         finalResult = cutBestTiles(tasksInfo, stats, imagesDir, destDir, \
             completedOnly, 25)
+
+    #To remove files older than D days
+    statusRemoval = removeOldFiles(destDir,removeFiles)
