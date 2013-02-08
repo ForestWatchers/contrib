@@ -19,11 +19,13 @@
 # Example: http://invisibleroads.com/tutorials/gdal-shapefile-points-save.html
 
 import os
+import re
 import sys
 import ogr
 import osr
 import gdal
 import json
+import time
 import urllib2
 from gdalconst import *
 from optparse import OptionParser
@@ -182,6 +184,27 @@ def generateShapefiles(data, destDir, printStats = 0):
 
     return 0
 
+def removeOldFiles(directory,daysLimit):
+    """
+    Removes old files from a directory older than a given limit
+    Example from: http://www.jigcode.com/2009/06/07/python-list-files-older-than-or-newer-than-a-specific-date-and-time/
+
+    :arg string directory: Directory to be analysed
+    :arg int daysLimit: Limit to remove files
+
+    :returns: statusRemoval
+    :rtype: int
+    """
+    files = os.listdir(directory)
+    files = [ f for f in files if re.search('.tif$', f, re.I)]
+    now = time.time()
+    for file in files:
+        if os.stat(directory+file).st_mtime < now - daysLimit * 86400:
+            if os.path.isfile(directory+file):
+                os.remove(os.path.join(directory, file))
+                print "Old file deleted: ", file
+    statusRemoval = 0
+    return statusRemoval
 
 #######################
 # Begin of the script #
@@ -207,6 +230,8 @@ if __name__ == "__main__":
         help="Get only completed tasks", metavar="COMPLETEDONLY")
     parser.add_option("-d", "--destination-directory", dest="destDir", \
         help="Directory for results", metavar="DESTDIR")
+    parser.add_option("-r", "--remove-files", dest="removeFiles", \
+        help="Remove files older than D days", metavar="REMOVEFILES")
 
     (options, args) = parser.parse_args()
 
@@ -234,6 +259,10 @@ if __name__ == "__main__":
         destDir = options.destDir
     else:
         destDir = "/home/eduardo/Testes/fw_img/results/"
+    if options.removeFiles:
+        removeFiles = options.removeFiles
+    else:
+        removeFiles = 9999
 
     #Get the data and start analysing it
     appId = getAppId(server, appName)
@@ -253,3 +282,6 @@ if __name__ == "__main__":
     
     stats = generateShapefiles(results, destDir, 0)
     print stats
+
+    #To remove files older than D days
+    statusRemoval = removeOldFiles(destDir,removeFiles)
