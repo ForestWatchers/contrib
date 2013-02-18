@@ -442,21 +442,21 @@ if __name__ == "__main__":
         help="Address to the server", metavar="SERVER")
     parser.add_option("-n", "--app-name", dest="appName", \
         help="Short name of the application", metavar="APPNAME")
-    parser.add_option("-t", "--max-number-tasks", dest="maxNumberTasks", \
+    parser.add_option("-t", "--max-number-tasks", type="int", dest="maxNumberTasks", \
         help="Maximum number of tasks to be downloaded", \
         metavar="MAXNUMBERTASKS")
-    parser.add_option("-a", "--max-number-answers", dest="maxNumberAnswers", \
+    parser.add_option("-a", "--max-number-answers", type="int", dest="maxNumberAnswers", \
         help="Maximum number of answers to be downloaded", \
         metavar="MAXNUMBERANSWERS")
-    parser.add_option("-c", "--completed-only", dest="completedOnly", \
+    parser.add_option("-c", "--completed-only", type="int", dest="completedOnly", \
         help="Get only completed tasks", metavar="COMPLETEDONLY")
     parser.add_option("-i", "--images-directory", dest="imagesDir", \
         help="Directory containing the images", metavar="IMAGESDIR")
     parser.add_option("-d", "--destination-directory", dest="destDir", \
         help="Directory for results", metavar="DESTDIR")
-    parser.add_option("-f", "--full-build", dest="fullBuild", \
+    parser.add_option("-f", "--full-build", type="int", dest="fullBuild", \
         help="Build the full set of results", metavar="FULLBUILD")
-    parser.add_option("-r", "--remove-files", dest="removeFiles", \
+    parser.add_option("-r", "--remove-files", type="int", dest="removeFiles", \
         help="Remove files older than D days", metavar="REMOVEFILES")
 
     (options, args) = parser.parse_args()
